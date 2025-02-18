@@ -127,13 +127,12 @@ void read_the_command(){
     unsigned long long cont_predmetov=0,massive_size=0;
     char command[50];
     bd *mas=NULL;
-    printf("Введите команду/ы:\n");
+    printf("Введите команду/ы:\n-> ");
     while(fgets(command, sizeof(command), stdin) != NULL){
         if(strncmp(command,"gen",3) == 0){
-            sscanf(command, "%*s %d --%d --%d", &nm, &min_disciplines, &max_disciplines);
-            //sscanf(command, "%*s %d", &nm);
+            sscanf(command, "%*s %d %d %d", &nm, &min_disciplines, &max_disciplines);
             mas = (bd *)malloc(sizeof(bd) * nm);
-            if (!mas) {printf("Ошибка выделения памяти");return;}
+            if (!mas) {printf("Ошибка выделения памяти");break;}
             cont_predmetov=genn(mas, nm, min_disciplines, max_disciplines);
         }else if(strncmp(command,"print_students",14) == 0&&mas!=NULL){
             sscanf(command, "%*s %d", &to_print_students);
@@ -141,11 +140,17 @@ void read_the_command(){
         }else if(strncmp(command,"get_size",8) == 0){
             massive_size=sizeof(bd) * nm+cont_predmetov*sizeof(subjects);
             printf("Размер массива:%llu B ~ %llu Kb ~ %llu Mb ~ %llu Gb\n",massive_size,massive_size>>10,massive_size>>20,massive_size>>30);
-        }else if(strncmp(command,"сlean",5) == 0){
+        }else if(strncmp(command,"clean",5) == 0){
             free(mas[0].items);
             free(mas);
             mas=NULL;
+            nm=0;
+            to_print_students=0;
+            cont_predmetov=0;
+            max_disciplines=20;
+            min_disciplines=10;
         }
+        printf("-> ");//ждем следующую команду, если видим это понимаем что команда выполнена была предыдущаяы
     }
 }
 
