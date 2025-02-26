@@ -55,8 +55,8 @@ const wchar_t *attestatio[16] = {L"Экзамен", L"Зачет", L"Курсо�
                                  L"Лабораторная", L"Контрольная", L"Доклад", L"Проект",
                                  L"Эссе", L"Собеседование", L"Рецензия", L"Опрос"};
 
-typedef struct subjects {
-    unsigned char name:4;
+typedef struct  __attribute__((packed)){//  __attribute__((packed)) для gcc и еще какого-то уомпилятора, указывает как упаковывать данные
+    unsigned char name:4;// на лекции говорили про упаковку 
     unsigned char numcabl:4;
     unsigned char numcabex:4;
     unsigned char hours:4;
@@ -64,98 +64,103 @@ typedef struct subjects {
     unsigned char end:1;
 } subjects;
 
-typedef struct bd {
+typedef struct  __attribute__((packed)){
     unsigned char f:4;
     unsigned char i:4;
     unsigned char o:4;
     unsigned char birthdate:4;
     unsigned char numgroup:4;
-    subjects* items;
 } bd;
 
-unsigned long long genn(bd *mas, int n, int min, int max) {
+void print_students(bd *mas, int n, subjects *subject_pool) {
+    setlocale(LC_ALL, "ru_RU.UTF-8");
+    wprintf(L"Номер | Фамилия | Имя      | Отчество      | Дата рождения | НомГруп | Предмет     | НомКабЛек | НомКабЭкз | Часы | Вид аттестации\n");
+    subjects *ptr=subject_pool;
+    for (int i = 0; i < n; i++) {
+        wprintf(L"%-6d|%-9ls|%-10ls|%-15ls|%-15ls|%-7ls%ls\n",i+1,fz[mas[i].f], iz[mas[i].i], oz[mas[i].o], birthdate[mas[i].birthdate], numgroup[mas[i].numgroup],L"<-┓");        
+        do {
+            wprintf(L"%-69ls|- %-11ls|%-11ls|%-11ls|%-6ls| %ls\n", L" ", subjects_name[ptr->name], numcabl[ptr->numcabl], numcabex[ptr->numcabex], hours[ptr->hours], attestatio[ptr->attestatio]);
+        } while ((ptr++)->end);
+    }
+}
+
+subjects* genn(bd *mas, int n, unsigned min, unsigned int max, unsigned long long *maxcount) {
     srand(time(NULL));
-    unsigned char *to_g = malloc(n);
+    unsigned short *to_g = malloc(sizeof(short)*n);
+    *maxcount = 0;
+    //bd *masive = mas;
     if (!to_g) {
         printf("Ошибка выделения памяти!\n");
-        return 0;
+        return NULL;
     }
     
-    unsigned long long maxcount = 0;
-    int *masive = (int *)mas;
-    for (int i = 0; i < n; i++, masive += 4) {
-        *masive = rand();
-        to_g[i] = min + (rand() % (max - min));
-        maxcount += to_g[i];
+    for (int i = 0; i < n; i++,mas++) {
+        *((int*)mas) = rand();
+        *maxcount += to_g[i] = min + (rand() % (max - min+1));;
     }
     
-    subjects *mas2 = malloc(sizeof(subjects) * maxcount);
+    subjects *mas2 = malloc(sizeof(subjects) * (*maxcount));
     if (!mas2) {
         printf("Ошибка выделения памяти для предметов!\n");
         free(to_g);
-        return 0;
+        return NULL;
     }
     
     subjects *ptr = mas2;
     for (int i = 0; i < n; i++) {
-        mas[i].items = ptr;
-        for (int j = 0; j < to_g[i]; j++, ptr++) {
+        for (int j = 0; j < to_g[i];ptr->end = 1, j++, ptr++) {
             *((int*)ptr) = rand();
-            ptr->end = 1;
         }
-        (ptr++)->end = 0;
+        (ptr-1)->end = 0;
     }
     free(to_g);
-    return maxcount;
+    return mas2;
 }
 
-void print_students(bd *mas, int n) {
-    setlocale(LC_ALL, "ru_RU.UTF-8");
-    wprintf(L"Фамилия  | Имя      | Отчество      | Дата рождения | НомГруп | Предмет     | НомКабЛек | НомКабЭкз | Часы | Вид аттестации\n");
-    subjects *ptr;
-    for (int i = 0; i < n; i++) {
-        wprintf(L"%-9ls|%-10ls|%-15ls|%-15ls|%-7ls%ls\n",fz[mas[i].f], iz[mas[i].i], oz[mas[i].o], birthdate[mas[i].birthdate], numgroup[mas[i].numgroup],L"<-┓");        
-        ptr = mas[i].items;
-        do {
-            wprintf(L"%-62ls|- %-11ls|%-11ls|%-11ls|%-6ls| %ls\n",L" ",subjects_name[ptr->name], numcabl[ptr->numcabl], numcabex[ptr->numcabex], hours[ptr->hours], attestatio[ptr->attestatio]);
-        } while ((++ptr)->end);
-    }
-}
 
 void read_the_command(){
-    int nm=0, min_disciplines = 10, max_disciplines = 20,to_print_students=0;
-    unsigned long long cont_predmetov=0,massive_size=0;
+    int nm=0, to_print_students=0;
+    unsigned int max_disciplines=20,min_disciplines = 10;
+    unsigned long long cont_predmetov=0, massive_size=0;
     char command[50];
     bd *mas=NULL;
+    subjects *subject_pool = NULL;
+    
     printf("Введите команду/ы:\n-> ");
     while(fgets(command, sizeof(command), stdin) != NULL){
-        if(strncmp(command,"gen",3) == 0){
-            sscanf(command, "%*s %d %d %d", &nm, &min_disciplines, &max_disciplines);
+        if(strncmp(command, "gen", 3) == 0){
+            sscanf(command, "%*s %d %u %u", &nm, &min_disciplines, &max_disciplines);
             mas = (bd *)malloc(sizeof(bd) * nm);
-            if (!mas) {printf("Ошибка выделения памяти");break;}
-            cont_predmetov=genn(mas, nm, min_disciplines, max_disciplines);
-        }else if(strncmp(command,"print_students",14) == 0&&mas!=NULL){
+            if (!mas) {printf("Ошибка выделения памяти"); break;}
+            subject_pool = genn(mas, nm, min_disciplines, max_disciplines, &cont_predmetov);
+        } else if(strncmp(command, "print_students", 14) == 0 && mas!=NULL) {
             sscanf(command, "%*s %d", &to_print_students);
-            print_students(mas, to_print_students==-1?nm:to_print_students);
-        }else if(strncmp(command,"get_size",8) == 0){
-            massive_size=sizeof(bd) * nm+cont_predmetov*sizeof(subjects);
-            printf("Размер массива:%llu B ~ %llu Kb ~ %llu Mb ~ %llu Gb\n",massive_size,massive_size>>10,massive_size>>20,massive_size>>30);
-        }else if(strncmp(command,"clean",5) == 0){
-            free(mas[0].items);
+            print_students(mas, to_print_students==-1 ? nm : to_print_students, subject_pool);
+        } else if(strncmp(command, "get_size", 8) == 0) {
+            massive_size = sizeof(bd) * nm + cont_predmetov * sizeof(subjects);
+            printf("-> Размер массива:%llu B ~ %llu Kb ~ %llu Mb ~ %llu Gb\n", massive_size, massive_size>>10, massive_size>>20, massive_size>>30);
+        } else if(strncmp(command, "clean", 5) == 0) {
+            free(subject_pool);
             free(mas);
-            mas=NULL;
-            nm=0;
-            to_print_students=0;
-            cont_predmetov=0;
-            max_disciplines=20;
-            min_disciplines=10;
+            mas = NULL;
+            subject_pool = NULL;
+            nm = 0;
+            to_print_students = 0;
+            cont_predmetov = 0;
+            max_disciplines = 20;
+            min_disciplines = 10;
+        }else{
+            printf("->\033[31m UNSUCCESS\033[0m\n-> ");
+            continue;
         }
-        printf("-> ");//ждем следующую команду, если видим это понимаем что команда выполнена была предыдущаяы
+        printf("->\033[32m SUCCESS\033[0m\n-> ");
+        
     }
 }
 
 int main() {
-    printf("Размер одного блока предмета: %zu Б\nРазмер одного блока Пользователя: %zu Б\n",sizeof(subjects), sizeof(bd));
+    printf("Размер одного блока предмета: %zu Б\nРазмер одного блока Пользователя: %zu Б\nМощность генератора: 16^10 ~ очень много\n", sizeof(subjects), sizeof(bd));
     read_the_command();
     return 0;
 }
+
